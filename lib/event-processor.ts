@@ -1,5 +1,12 @@
 // lib/event-processor.ts
 
+import { getUpcomingEvents } from "./google-calendar";
+import {
+  sendBirthdayReminder,
+  sendMonthlyDesignReminder,
+  sendMeetingReminder,
+  sendRosterReminder,
+} from "./whatsapp-meta";
 import {
   differenceInDays,
   differenceInHours,
@@ -7,13 +14,6 @@ import {
   format,
 } from "date-fns";
 import { ProcessedEvent, EventType } from "@/types";
-import { getUpcomingEvents } from "./google-calendar";
-import {
-  sendBirthdayReminder,
-  sendMeetingReminder,
-  sendMonthlyDesignReminder,
-  sendRosterReminder,
-} from "./whatsapp-meta";
 
 function detectEventType(summary: string, description?: string): EventType {
   const lowerSummary = summary.toLowerCase();
@@ -136,17 +136,16 @@ export async function processUpcomingEvents() {
               console.log(
                 `Sending birthday reminder for ${name} (${daysUntil} days)`
               );
-              const results = await sendBirthdayReminder(
+              const result = await sendBirthdayReminder(
                 name,
                 dateStr,
                 daysUntil
               );
 
-              const successCount = results.filter((r) => r.success).length;
-              if (successCount > 0) {
+              if (result.success) {
                 markReminderSent(event.id, daysUntil);
                 reminderSent = true;
-                totalRemindersSent += successCount;
+                totalRemindersSent += 1;
               }
             }
             break;
@@ -161,16 +160,15 @@ export async function processUpcomingEvents() {
               console.log(
                 `Sending monthly design reminder for ${monthName} (${daysUntil} days)`
               );
-              const results = await sendMonthlyDesignReminder(
+              const result = await sendMonthlyDesignReminder(
                 monthName,
                 daysUntil
               );
 
-              const successCount = results.filter((r) => r.success).length;
-              if (successCount > 0) {
+              if (result.success) {
                 markReminderSent(event.id, daysUntil);
                 reminderSent = true;
-                totalRemindersSent += successCount;
+                totalRemindersSent += 1;
               }
             }
             break;
@@ -194,17 +192,16 @@ export async function processUpcomingEvents() {
                     event.summary
                   } (${hoursUntil.toFixed(1)}h)`
                 );
-                const results = await sendMeetingReminder(
+                const result = await sendMeetingReminder(
                   event.summary,
                   eventDate.toISOString(),
                   hoursUntil
                 );
 
-                const successCount = results.filter((r) => r.success).length;
-                if (successCount > 0) {
+                if (result.success) {
                   markReminderSent(event.id, reminderKey);
                   reminderSent = true;
-                  totalRemindersSent += successCount;
+                  totalRemindersSent += 1;
                 }
               }
             }
@@ -220,17 +217,16 @@ export async function processUpcomingEvents() {
               console.log(
                 `Sending roster reminder for ${event.summary} (${daysUntil} days)`
               );
-              const results = await sendRosterReminder(
+              const result = await sendRosterReminder(
                 event.summary,
                 dateStr,
                 daysUntil
               );
 
-              const successCount = results.filter((r) => r.success).length;
-              if (successCount > 0) {
+              if (result.success) {
                 markReminderSent(event.id, daysUntil);
                 reminderSent = true;
-                totalRemindersSent += successCount;
+                totalRemindersSent += 1;
               }
             }
             break;
