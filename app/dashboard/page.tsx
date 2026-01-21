@@ -311,7 +311,7 @@ export default function Dashboard() {
                   <div className="font-medium text-gray-900">{event.title}</div>
                   <div className="text-sm text-gray-600">
                     {new Date(
-                      event.start?.dateTime || event.start?.date
+                      event.start?.dateTime || event.start?.date,
                     ).toLocaleDateString("en-US", {
                       weekday: "short",
                       month: "short",

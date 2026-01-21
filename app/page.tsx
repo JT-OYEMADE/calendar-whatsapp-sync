@@ -1,181 +1,432 @@
-// app/page.tsx
+"use client";
 
-import Link from "next/link";
+import { useState } from "react";
+import { useSession, signOut } from "next-auth/react";
+import { redirect } from "next/navigation";
 
-export default function Home() {
+export default function AdminDashboard() {
+  const { data: session, status } = useSession({
+    required: true,
+    onUnauthenticated() {
+      redirect("/auth/signin");
+    },
+  });
+
+  const [activeTab, setActiveTab] = useState("birthdays");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+
+  const [eventData, setEventData] = useState({
+    summary: "",
+    description: "",
+    startDate: "",
+    endDate: "",
+    startTime: "",
+    endTime: "",
+    reminder: 60,
+  });
+
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const handleBirthdayImport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage("");
+
+    try {
+      const file = (e.target as any).file.files[0];
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/birthdays/import", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setMessage(
+          `✅ Successfully imported ${result.imported} birthdays! Failed: ${result.failed}`,
+        );
+      } else {
+        setMessage(`❌ Error: ${result.error}`);
+      }
+    } catch (error) {
+      setMessage(
+        `❌ Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/events/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "custom",
+          data: eventData,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setMessage("✅ Event created successfully!");
+        setEventData({
+          summary: "",
+          description: "",
+          startDate: "",
+          endDate: "",
+          startTime: "",
+          endTime: "",
+          reminder: 60,
+        });
+      } else {
+        setMessage(`❌ Error: ${result.error}`);
+      }
+    } catch (error) {
+      setMessage(
+        `❌ Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateMonthlyEvents = async () => {
+    setLoading(true);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/events/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "new-month-year",
+          data: { year: new Date().getFullYear() },
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setMessage(`✅ Created ${result.events.length} monthly events!`);
+      } else {
+        setMessage(`❌ Error: ${result.error}`);
+      }
+    } catch (error) {
+      setMessage(
+        `❌ Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTestNotification = async () => {
+    setLoading(true);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/notifications/check", {
+        method: "POST",
+        // No auth header needed for manual testing
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setMessage(`✅ Sent ${result.count} notifications!`);
+      } else {
+        setMessage(`❌ Error: ${result.error}`);
+      }
+    } catch (error) {
+      setMessage(
+        `❌ Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-600 via-purple-600 to-pink-500 flex items-center justify-center p-4">
-      <div className="max-w-4xl w-full">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 md:p-12 text-center">
-          <div className="mb-6">
-            <span className="text-6xl">⛪</span>
-          </div>
-
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-            Church Media Team
-          </h1>
-
-          <h2 className="text-2xl md:text-3xl font-semibold text-purple-600 mb-6">
-            Automated Reminder System
-          </h2>
-
-          <p className="text-lg text-gray-700 mb-8 max-w-2xl mx-auto">
-            Never miss a birthday, monthly design, meeting, or roster again!
-            Automatic WhatsApp reminders for your entire team.
-          </p>
-
-          <div className="grid md:grid-cols-4 gap-4 mb-8 text-center">
-            <div className="bg-gradient-to-br from-red-50 to-red-100 p-4 rounded-lg">
-              <span className="text-3xl block mb-2">🎂</span>
-              <span className="text-sm font-medium text-gray-700">
-                Birthdays
-              </span>
+    <div className="min-h-screen bg-gray-50">
+      <nav className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16 items-center">
+            <div>
+              <h1 className="text-xl font-bold">Church Media Team</h1>
             </div>
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg">
-              <span className="text-3xl block mb-2">🎨</span>
-              <span className="text-sm font-medium text-gray-700">
-                Monthly Designs
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-600">
+                {session?.user?.email}
               </span>
-            </div>
-            <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg">
-              <span className="text-3xl block mb-2">📅</span>
-              <span className="text-sm font-medium text-gray-700">
-                Meetings
-              </span>
-            </div>
-            <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 p-4 rounded-lg">
-              <span className="text-3xl block mb-2">📋</span>
-              <span className="text-sm font-medium text-gray-700">Rosters</span>
+              <button
+                onClick={() => signOut()}
+                className="text-sm text-red-600 hover:text-red-700"
+              >
+                Sign Out
+              </button>
             </div>
           </div>
+        </div>
+      </nav>
 
-          <Link
-            href="/dashboard"
-            className="inline-block bg-gradient-to-r from-purple-600 to-pink-600 text-white text-lg font-semibold px-8 py-4 rounded-full hover:shadow-xl transition-all transform hover:scale-105"
+      <div className="max-w-4xl mx-auto p-8">
+        <p className="text-gray-600 mb-8">Notification Management System</p>
+
+        {message && (
+          <div
+            className={`p-4 rounded mb-6 ${
+              message.includes("✅")
+                ? "bg-green-50 text-green-800"
+                : "bg-red-50 text-red-800"
+            }`}
           >
-            Go to Dashboard →
-          </Link>
+            {message}
+          </div>
+        )}
 
-          <div className="mt-8 pt-8 border-t border-gray-200">
-            <p className="text-sm text-gray-600">
-              Powered by Google Calendar API & Meta WhatsApp Cloud API
-            </p>
-            <p className="text-xs text-gray-500 mt-2">
-              100% Free • Automated • Reliable
-            </p>
+        <div className="bg-white rounded-lg shadow">
+          <div className="border-b">
+            <div className="flex">
+              <button
+                onClick={() => setActiveTab("birthdays")}
+                className={`px-6 py-3 font-medium ${
+                  activeTab === "birthdays"
+                    ? "border-b-2 border-blue-500 text-blue-600"
+                    : "text-gray-600"
+                }`}
+              >
+                Birthdays
+              </button>
+              <button
+                onClick={() => setActiveTab("events")}
+                className={`px-6 py-3 font-medium ${
+                  activeTab === "events"
+                    ? "border-b-2 border-blue-500 text-blue-600"
+                    : "text-gray-600"
+                }`}
+              >
+                Events
+              </button>
+              <button
+                onClick={() => setActiveTab("test")}
+                className={`px-6 py-3 font-medium ${
+                  activeTab === "test"
+                    ? "border-b-2 border-blue-500 text-blue-600"
+                    : "text-gray-600"
+                }`}
+              >
+                Test
+              </button>
+            </div>
+          </div>
+
+          <div className="p-6">
+            {activeTab === "birthdays" && (
+              <div>
+                <h2 className="text-xl font-semibold mb-4">Import Birthdays</h2>
+                <form onSubmit={handleBirthdayImport} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Upload CSV File
+                    </label>
+                    <input
+                      type="file"
+                      name="file"
+                      accept=".csv"
+                      className="block w-full text-sm border rounded p-2"
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      CSV format: Name, Birthday (YYYY-MM-DD)
+                    </p>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {loading ? "Importing..." : "Import Birthdays"}
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {activeTab === "events" && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
+                  <button
+                    onClick={handleCreateMonthlyEvents}
+                    disabled={loading}
+                    className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 disabled:opacity-50"
+                  >
+                    {loading
+                      ? "Creating..."
+                      : "Create Monthly Events for This Year"}
+                  </button>
+                </div>
+
+                <div>
+                  <h2 className="text-xl font-semibold mb-4">
+                    Create Custom Event
+                  </h2>
+                  <form onSubmit={handleCreateEvent} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">
+                        Title
+                      </label>
+                      <input
+                        type="text"
+                        value={eventData.summary}
+                        onChange={(e) =>
+                          setEventData({
+                            ...eventData,
+                            summary: e.target.value,
+                          })
+                        }
+                        className="w-full border rounded p-2"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">
+                        Description
+                      </label>
+                      <textarea
+                        value={eventData.description}
+                        onChange={(e) =>
+                          setEventData({
+                            ...eventData,
+                            description: e.target.value,
+                          })
+                        }
+                        className="w-full border rounded p-2"
+                        rows={3}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-2">
+                          Start Date
+                        </label>
+                        <input
+                          type="date"
+                          value={eventData.startDate}
+                          onChange={(e) =>
+                            setEventData({
+                              ...eventData,
+                              startDate: e.target.value,
+                            })
+                          }
+                          className="w-full border rounded p-2"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-2">
+                          End Date
+                        </label>
+                        <input
+                          type="date"
+                          value={eventData.endDate}
+                          onChange={(e) =>
+                            setEventData({
+                              ...eventData,
+                              endDate: e.target.value,
+                            })
+                          }
+                          className="w-full border rounded p-2"
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-2">
+                          Start Time (optional)
+                        </label>
+                        <input
+                          type="time"
+                          value={eventData.startTime}
+                          onChange={(e) =>
+                            setEventData({
+                              ...eventData,
+                              startTime: e.target.value,
+                            })
+                          }
+                          className="w-full border rounded p-2"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-2">
+                          End Time (optional)
+                        </label>
+                        <input
+                          type="time"
+                          value={eventData.endTime}
+                          onChange={(e) =>
+                            setEventData({
+                              ...eventData,
+                              endTime: e.target.value,
+                            })
+                          }
+                          className="w-full border rounded p-2"
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {loading ? "Creating..." : "Create Event"}
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "test" && (
+              <div>
+                <h2 className="text-xl font-semibold mb-4">
+                  Test Notifications
+                </h2>
+                <p className="text-gray-600 mb-4">
+                  This will check today's events and send test notifications to
+                  WhatsApp
+                </p>
+                <button
+                  onClick={handleTestNotification}
+                  disabled={loading}
+                  className="bg-purple-600 text-white px-6 py-2 rounded hover:bg-purple-700 disabled:opacity-50"
+                >
+                  {loading ? "Sending..." : "Send Test Notifications"}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
     </div>
   );
 }
-
-// /*
-// ================================================================
-// DEPLOYMENT INSTRUCTIONS
-// ================================================================
-
-// 1. LOCAL TESTING
-//    npm run dev
-//    Visit: http://localhost:3000
-
-// 2. VERCEL DEPLOYMENT (Recommended)
-
-//    A. Install Vercel CLI:
-//       npm i -g vercel
-
-//    B. Login:
-//       vercel login
-
-//    C. Deploy:
-//       vercel
-
-//    D. Set Environment Variables:
-//       - Go to project settings on vercel.com
-//       - Add all variables from .env.local
-//       - Update NEXT_PUBLIC_APP_URL to your production URL
-//       - Update GOOGLE_REDIRECT_URI to https://your-domain.com/api/auth/callback
-
-//    E. Create vercel.json for cron:
-//       {
-//         "crons": [{
-//           "path": "/api/cron/check-reminders",
-//           "schedule": "0 */6 * * *"
-//         }]
-//       }
-
-//    F. Redeploy:
-//       vercel --prod
-
-// 3. ALTERNATIVE: Other Hosting (Netlify, Railway, etc.)
-
-//    Build command: npm run build
-//    Output directory: .next
-
-//    For cron jobs, use external service:
-//    - https://cron-job.org
-//    - URL: https://your-domain.com/api/cron/check-reminders
-//    - Schedule: 0 */6 * * *
-//    - Add header: Authorization: Bearer YOUR_CRON_SECRET
-
-// 4. POST-DEPLOYMENT
-
-//    A. Re-authenticate with Google:
-//       - Visit: https://your-domain.com/api/auth
-//       - Grant permissions
-//       - Verify connection in dashboard
-
-//    B. Test WhatsApp:
-//       - Click "Test WhatsApp Connection" in dashboard
-//       - Check if messages are received
-
-//    C. Upload birthdays and create monthly events
-
-//    D. Monitor cron job logs to ensure reminders are sent
-
-// ================================================================
-// TROUBLESHOOTING TIPS
-// ================================================================
-
-// Issue: "tokens.json not found"
-// Solution: Visit /api/auth to authenticate with Google
-
-// Issue: WhatsApp messages not sending
-// Solution:
-// - Verify all recipient numbers are registered in Meta Developer Console
-// - Check ACCESS_TOKEN and PHONE_NUMBER_ID are correct
-// - Ensure numbers include country code (e.g., 2348012345678)
-
-// Issue: Cron job not running
-// Solution:
-// - Verify CRON_SECRET matches in .env and request header
-// - Check Vercel cron logs in dashboard
-// - Manually test: POST to /api/cron/check-reminders
-
-// Issue: Calendar events not showing
-// Solution:
-// - Check GOOGLE_CALENDAR_ID is correct
-// - Ensure calendar is accessible
-// - Re-authenticate if tokens expired
-
-// ================================================================
-// EXCEL FILE FORMAT GUIDE
-// ================================================================
-
-// Your Excel file should have these columns (case-insensitive):
-
-// | Name        | Birthday   | Phone         | SubUnit  |
-// |-------------|------------|---------------|----------|
-// | John Doe    | 1990-05-15 | 2348012345678 | Media    |
-// | Jane Smith  | 1985-12-20 | 2348098765432 | Design   |
-
-// Supported date formats:
-// - YYYY-MM-DD (recommended)
-// - MM/DD/YYYY
-// - DD/MM/YYYY
-// - Excel date numbers (auto-detected)
-
-// Phone and SubUnit columns are optional.
-
-// ================================================================
-// */
